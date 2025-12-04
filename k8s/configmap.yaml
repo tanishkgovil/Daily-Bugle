@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-env
+  namespace: dailybugle
+data:
+  # All services talk to the same DB name your code uses internally: "dailybugle"
+  MONGO_URL: "mongodb://mongodb:27017/?directConnection=true"
+  AUTH_URL: "http://auth:4000"
+
+  # Frontend proxy bases (cluster DNS)
+  AUTH_BASE:     "http://auth:4000"
+  ARTICLE_BASE:  "http://article:4001"
+  COMMENT_BASE:  "http://comment:4002"
+  SEARCH_BASE:   "http://search:4003"
+  AD_BASE:       "http://ad:4004"
+  AD_EVENT_BASE: "http://ad-events:4005"
+
+  COOKIE_SECURE: "false"

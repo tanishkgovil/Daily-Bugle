@@ -55,7 +55,7 @@
     }
 
     async function loadMe() {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
+      const res = await fetch("/dailybugle/api/auth/me", { credentials: "include" });
       if (!res.ok) return null;
       const { user } = await res.json();
       return user;
@@ -75,19 +75,19 @@
     }
 
     async function loadStories() {
-      const data = await api("/api/articles");
+      const data = await api("/dailybugle/api/articles");
       (data.items || []).forEach(it => storiesEl.appendChild(storyCard(it)));
     }
 
     async function loadAd(contextArticleId) {
-      const ad = await api("/api/ads");
+      const ad = await api("/dailybugle/api/ads");
       if (!ad || !ad.ad) { adWrap.classList.add("hidden"); return; }
 
       // Render creative
       adContainer.innerHTML = ad.ad.html;
 
       // Fire impression
-      await fetch("/api/ad-events", {
+      await fetch("/dailybugle/api/ad-events", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         credentials:"include",
@@ -97,7 +97,7 @@
       // Capture click anywhere inside the ad container
       adContainer.addEventListener("click", async (e) => {
         try {
-          await fetch("/api/ad-events", {
+          await fetch("/dailybugle/api/ad-events", {
             method:"POST",
             headers:{ "Content-Type":"application/json" },
             credentials:"include",
@@ -118,7 +118,7 @@
           ${isAuthor ? ' &nbsp; <a href="/dailybugle/new_article.html">New Article</a>' : ''}
           &nbsp; <a href="/dailybugle/story.html">Story view</a>
           &nbsp; <button id="logoutBtn">Logout</button>`;
-        qs("#logoutBtn").onclick = async () => { await api("/api/auth/logout", { method:"POST" }); location.reload(); };
+        qs("#logoutBtn").onclick = async () => { await api("/dailybugle/api/auth/logout", { method:"POST" }); location.reload(); };
       }
       await loadStories();
 

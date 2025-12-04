@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpd-frontend
+  namespace: dailybugle
+spec:
+  type: LoadBalancer
+  selector:
+    app: httpd-frontend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpd-frontend
+  namespace: dailybugle
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpd-frontend
+  template:
+    metadata:
+      labels:
+        app: httpd-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: dailybugle:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node","backend/httpd-frontend.js"]
+          env:
+            - name: PORT
+              value: "8080"
+            - name: AUTH_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: AUTH_BASE
+            - name: ARTICLE_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: ARTICLE_BASE
+            - name: COMMENT_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: COMMENT_BASE
+            - name: SEARCH_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: SEARCH_BASE
+            - name: AD_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: AD_BASE
+            - name: AD_EVENT_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: AD_EVENT_BASE
+          ports:
+            - containerPort: 8080

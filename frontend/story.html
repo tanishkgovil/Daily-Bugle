@@ -78,12 +78,12 @@
       return res.text();
     }
     async function loadMe() {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
+      const res = await fetch("/dailybugle/api/auth/me", { credentials: "include" });
       if (!res.ok) return null; const { user } = await res.json(); return user;
     }
 
     async function loadArticle() {
-      const a = await api(`/api/articles/${encodeURIComponent(articleId)}`);
+      const a = await api(`/dailybugle/api/articles/${encodeURIComponent(articleId)}`);
       qs("#title").textContent = a.title;
       qs("#teaser").textContent = a.teaser || "";
       qs("#cats").textContent = "Categories: " + (a.categories||[]).join(", ");
@@ -105,7 +105,7 @@
     }
 
     async function loadComments() {
-      const data = await api(`/api/comments/${encodeURIComponent(articleId)}/comments`);
+      const data = await api(`/dailybugle/api/comments/${encodeURIComponent(articleId)}/comments`);
       const box = qs("#comments"); box.innerHTML = "";
       (data.items || []).forEach(c => {
         const el = document.createElement("div");
@@ -116,12 +116,12 @@
     }
 
     async function loadAd() {
-      const ad = await api("/api/ads");
+      const ad = await api("/dailybugle/api/ads");
       if (!ad || !ad.ad) { qs("#adWrap").classList.add("hidden"); return; }
       const div = qs("#adContainer");
       div.innerHTML = ad.ad.html;
 
-      await fetch("/api/ad-events", {
+      await fetch("/dailybugle/api/ad-events", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         credentials:"include",
@@ -130,7 +130,7 @@
 
       div.addEventListener("click", async () => {
         try {
-          await fetch("/api/ad-events", {
+          await fetch("/dailybugle/api/ad-events", {
             method:"POST",
             headers:{ "Content-Type":"application/json" },
             credentials:"include",
@@ -171,7 +171,7 @@
           body: qs("#e_body").value,
           categories: qs("#e_categories").value.split(",").map(s => s.trim()).filter(Boolean)
         };
-        const res = await fetch(`/api/articles/${encodeURIComponent(articleId)}`, {
+        const res = await fetch(`/dailybugle/api/articles/${encodeURIComponent(articleId)}`, {
           method:"PATCH", headers:{ "Content-Type":"application/json" }, credentials:"include",
           body: JSON.stringify(payload)
         });
@@ -183,7 +183,7 @@
       qs("#c_post").onclick = async () => {
         const text = qs("#c_text").value.trim();
         if (!text) return;
-        const r = await fetch(`/api/comments/${encodeURIComponent(articleId)}/comments`, {
+        const r = await fetch(`/dailybugle/api/comments/${encodeURIComponent(articleId)}/comments`, {
           method:"POST", headers:{ "Content-Type":"application/json" }, credentials:"include",
           body: JSON.stringify({ comment: text })
         });

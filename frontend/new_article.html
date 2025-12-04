@@ -37,11 +37,11 @@
   <script>
     const qs = (s, r=document) => r.querySelector(s);
     async function me() {
-      const r = await fetch("/api/auth/me", { credentials:"include" });
+      const r = await fetch("/dailybugle/api/auth/me", { credentials:"include" });
       if (!r.ok) return null; const { user } = await r.json(); return user;
     }
     async function postArticle(formData) {
-      return fetch("/api/articles", {
+      return fetch("/dailybugle/api/articles", {
         method: "POST",
         credentials: "include",
         body: formData

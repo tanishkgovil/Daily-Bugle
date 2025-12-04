@@ -46,15 +46,15 @@
     document.getElementById("f").onsubmit = async (e) => {
       e.preventDefault(); m.textContent = "Signing in…";
       try {
-        await post("/api/auth/login", { username: u.value.trim(), password: p.value });
+        await post("/dailybugle/api/auth/login", { username: u.value.trim(), password: p.value });
         location.href = "/dailybugle/";
       } catch (err) { m.textContent = err.message; }
     };
     document.getElementById("r").onclick = async () => {
       m.textContent = "Creating account…";
       try {
-        await post("/api/auth/register", { username: u.value.trim(), password: p.value, role: document.getElementById("asAuthor").checked ? "author" : "reader" });
-        await post("/api/auth/login", { username: u.value.trim(), password: p.value });
+        await post("/dailybugle/api/auth/register", { username: u.value.trim(), password: p.value, role: document.getElementById("asAuthor").checked ? "author" : "reader" });
+        await post("/dailybugle/api/auth/login", { username: u.value.trim(), password: p.value });
         location.href = "/dailybugle/";
       } catch (err) { m.textContent = err.message; }
     };
