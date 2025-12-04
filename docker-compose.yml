@@ -1,0 +1,75 @@
+services:
+  mongo:
+    image: mongo:7
+    ports: ["27018:27017"]
+    volumes: [mongo-data:/data/db]
+
+  auth:
+    build: .
+    command: ["node","backend/auth.js"]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      COOKIE_SECURE: "false"
+    depends_on: [mongo]
+    ports: ["4000:4000"]
+
+  article:
+    build: .
+    command: ["node","backend/article.js"]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      AUTH_URL: http://auth:4000
+    depends_on: [mongo, auth]
+    ports: ["4001:4001"]
+
+  comment:
+    build: .
+    command: ["node","backend/comment.js"]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      AUTH_URL: http://auth:4000
+    depends_on: [mongo, auth]
+    ports: ["4002:4002"]
+
+  search:
+    build: .
+    command: ["node","backend/search.js"]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo]
+    ports: ["4003:4003"]
+
+  ad:
+    build: .
+    command: ["node","backend/ad.js"]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      AUTH_URL: http://auth:4000
+    depends_on: [mongo, auth]
+    ports: ["4004:4004"]
+
+  ad_events:
+    build: .
+    command: ["node","backend/ad-event.js"]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      AUTH_URL: http://auth:4000
+    depends_on: [mongo, auth]
+    ports: ["4005:4005"]
+
+  httpd_frontend:
+    build: .
+    command: ["node","backend/httpd-frontend.js"]
+    environment:
+      PORT: "8080"
+      AUTH_BASE:     http://auth:4000
+      ARTICLE_BASE:  http://article:4001
+      COMMENT_BASE:  http://comment:4002
+      SEARCH_BASE:   http://search:4003
+      AD_BASE:       http://ad:4004
+      AD_EVENT_BASE: http://ad_events:4005
+    depends_on: [auth, article, comment, search, ad, ad_events]
+    ports: ["8080:8080"]      # host:container
+
+volumes:
+  mongo-data:

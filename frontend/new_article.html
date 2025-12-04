@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Daily Bugle — New Article</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { font-family: system-ui, sans-serif; margin:0; background:#0f172a; color:#e2e8f0; }
+    header { padding:12px 16px; background:#0b1220; border-bottom:1px solid #1f2937; }
+    main { max-width: 860px; margin: 0 auto; padding: 16px; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:14px; }
+    input, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #334155; background:#0b1220; color:#e2e8f0; }
+    button { padding:8px 10px; border-radius:8px; border:0; background:#2563eb; color:#fff; cursor:pointer; }
+    a { color:#93c5fd; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <header><a href="/dailybugle/">← Back</a></header>
+  <main>
+    <div class="card">
+      <h2>New Article</h2>
+      <label>Title <input id="title"/></label><br/>
+      <label>Teaser <input id="teaser"/></label><br/>
+      <label>Body <textarea id="body" rows="10"></textarea></label><br/>
+      <label>Categories (comma separated) <input id="cats"/></label><br/>
+      <label>Image (optional) <input type="file" id="image" accept="image/*"/></label><br/>
+      <div id="imagePreview" style="margin-top:10px;display:none">
+        <img id="preview" style="max-width:300px;border-radius:8px" />
+      </div><br/>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="publish">Publish</button>
+        <span id="msg" style="opacity:.85"></span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const qs = (s, r=document) => r.querySelector(s);
+    async function me() {
+      const r = await fetch("/api/auth/me", { credentials:"include" });
+      if (!r.ok) return null; const { user } = await r.json(); return user;
+    }
+    async function postArticle(formData) {
+      return fetch("/api/articles", {
+        method: "POST",
+        credentials: "include",
+        body: formData
+      });
+    }
+    (async () => {
+      const user = await me();
+      const isAuthor = user && (user.roles||[]).includes("author");
+      if (!isAuthor) { location.href = "/dailybugle/login.html"; return; }
+
+      // Image preview
+      qs("#image").onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            qs("#preview").src = e.target.result;
+            qs("#imagePreview").style.display = "block";
+          };
+          reader.readAsDataURL(file);
+        } else {
+          qs("#imagePreview").style.display = "none";
+        }
+      };
+
+      qs("#publish").onclick = async () => {
+        const formData = new FormData();
+        formData.append('title', qs("#title").value.trim());
+        formData.append('teaser', qs("#teaser").value.trim());
+        formData.append('body', qs("#body").value);
+        formData.append('categories', qs("#cats").value);
+        
+        const imageFile = qs("#image").files[0];
+        if (imageFile) {
+          formData.append('image', imageFile);
+        }
+
+        if (!formData.get('title') || !formData.get('body')) { 
+          qs("#msg").textContent = "Title and body required."; 
+          return; 
+        }
+
+        const r = await postArticle(formData);
+        if (!r.ok) { qs("#msg").textContent = "Publish failed."; return; }
+        const data = await r.json(); // { id }
+        location.href = `/dailybugle/story.html?id=${encodeURIComponent(data.id)}`;
+      };
+    })();
+  </script>
+</body>
+</html>

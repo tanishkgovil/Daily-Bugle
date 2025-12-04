@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Daily Bugle — Story</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #0f172a; color:#e2e8f0; }
+    header, footer { padding: 12px 16px; background:#0b1220; border-bottom:1px solid #1f2937; }
+    main { max-width: 860px; margin: 0 auto; padding: 16px; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:14px; margin-bottom:12px; }
+    a, a:visited { color:#93c5fd; text-decoration:none; }
+    input, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #334155; background:#0b1220; color:#e2e8f0; }
+    button { padding:8px 10px; border-radius:8px; border:0; background:#2563eb; color:#fff; cursor:pointer; }
+    .row { display:flex; gap:16px; }
+    .right { width: 300px; }
+    .hidden { display:none; }
+    .ad { background:#0b1220; border:1px dashed #334155; min-height:90px; display:block; padding:10px; border-radius:10px; }
+  </style>
+</head>
+<body>
+  <header class="row" style="justify-content:space-between;align-items:center;">
+    <div><a href="/dailybugle/">← Back</a></div>
+    <div id="userbox"><a href="/dailybugle/login.html">Login / Register</a></div>
+  </header>
+
+  <main class="row">
+    <section style="flex:2">
+      <article class="card">
+        <h1 id="title">Loading…</h1>
+        <div id="teaser" style="opacity:.85;margin-top:-6px"></div>
+        <div id="cats" style="opacity:.75;font-size:.9em;margin-top:8px"></div>
+        <div id="articleImage" style="margin-top:12px;display:none">
+          <img id="img" style="max-width:100%;border-radius:8px" />
+        </div>
+        <div id="body" style="margin-top:12px; white-space:pre-wrap;"></div>
+      </article>
+
+      <div id="authorTools" class="card hidden">
+        <h3>Edit article</h3>
+        <label>Title <input id="e_title"/></label><br/>
+        <label>Teaser <input id="e_teaser"/></label><br/>
+        <label>Body <textarea id="e_body" rows="8"></textarea></label><br/>
+        <label>Categories (comma separated) <input id="e_categories"/></label><br/>
+        <button id="saveBtn">Save changes</button>
+        <span id="saveMsg" style="margin-left:10px; opacity:.85"></span>
+      </div>
+
+      <section class="card">
+        <h3>Comments</h3>
+        <div id="commentForm" class="hidden">
+          <textarea id="c_text" rows="3" placeholder="Add a comment…"></textarea>
+          <div style="margin-top:8px"><button id="c_post">Post</button></div>
+        </div>
+        <div id="comments"></div>
+      </section>
+    </section>
+
+    <aside class="right">
+      <div id="adWrap" class="card">
+        <div class="ad" id="adContainer">Loading ad…</div>
+      </div>
+    </aside>
+  </main>
+
+  <footer><small>&copy; Daily Bugle</small></footer>
+
+  <script>
+    const qs = (s, r=document) => r.querySelector(s);
+    const params = new URLSearchParams(location.search);
+    const articleId = params.get("id");
+
+    async function api(path, opts={}) {
+      const res = await fetch(path, { credentials:"include", ...opts });
+      if (res.status === 204) return null;
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) return res.json();
+      return res.text();
+    }
+    async function loadMe() {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (!res.ok) return null; const { user } = await res.json(); return user;
+    }
+
+    async function loadArticle() {
+      const a = await api(`/api/articles/${encodeURIComponent(articleId)}`);
+      qs("#title").textContent = a.title;
+      qs("#teaser").textContent = a.teaser || "";
+      qs("#cats").textContent = "Categories: " + (a.categories||[]).join(", ");
+      
+      if (a.imageUrl) {
+        qs("#img").src = a.imageUrl;
+        qs("#articleImage").style.display = "block";
+      } else {
+        qs("#articleImage").style.display = "none";
+      }
+      
+      qs("#body").textContent = a.body || "";
+
+      // preload editor fields
+      qs("#e_title").value = a.title || "";
+      qs("#e_teaser").value = a.teaser || "";
+      qs("#e_body").value = a.body || "";
+      qs("#e_categories").value = (a.categories||[]).join(", ");
+    }
+
+    async function loadComments() {
+      const data = await api(`/api/comments/${encodeURIComponent(articleId)}/comments`);
+      const box = qs("#comments"); box.innerHTML = "";
+      (data.items || []).forEach(c => {
+        const el = document.createElement("div");
+        el.style.margin = "10px 0";
+        el.innerHTML = `<div style="opacity:.8;font-size:.9em">${new Date(c.createdAt).toLocaleString()}</div><div>${c.comment}</div>`;
+        box.appendChild(el);
+      });
+    }
+
+    async function loadAd() {
+      const ad = await api("/api/ads");
+      if (!ad || !ad.ad) { qs("#adWrap").classList.add("hidden"); return; }
+      const div = qs("#adContainer");
+      div.innerHTML = ad.ad.html;
+
+      await fetch("/api/ad-events", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        credentials:"include",
+        body: JSON.stringify({ ad_id: ad.ad.id, article_id: articleId, event_type: "impression" })
+      });
+
+      div.addEventListener("click", async () => {
+        try {
+          await fetch("/api/ad-events", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            credentials:"include",
+            body: JSON.stringify({ ad_id: ad.ad.id, article_id: articleId, event_type: "click" })
+          });
+        } finally {
+          location.href = ad.ad.clickUrl;
+        }
+      }, { once:true });
+    }
+
+    (async () => {
+      if (!articleId) { location.href = "/"; return; }
+
+      const me = await loadMe();
+      if (me) {
+        qs("#userbox").innerHTML = `<span>Hi, ${me.username}</span> &nbsp; <a href="/dailybugle/">Home</a>`;
+        qs("#commentForm").classList.remove("hidden");
+      }
+
+      await loadArticle();
+      await loadComments();
+
+      // Author tools & ads
+      const roles = (me && me.roles) || [];
+      if (roles.includes("author")) {
+        qs("#authorTools").classList.remove("hidden");
+        qs("#adWrap").classList.add("hidden");
+      } else {
+        await loadAd();
+      }
+
+      // Save edit (author)
+      qs("#saveBtn").onclick = async () => {
+        const payload = {
+          title: qs("#e_title").value,
+          teaser: qs("#e_teaser").value,
+          body: qs("#e_body").value,
+          categories: qs("#e_categories").value.split(",").map(s => s.trim()).filter(Boolean)
+        };
+        const res = await fetch(`/api/articles/${encodeURIComponent(articleId)}`, {
+          method:"PATCH", headers:{ "Content-Type":"application/json" }, credentials:"include",
+          body: JSON.stringify(payload)
+        });
+        qs("#saveMsg").textContent = res.ok ? "Saved." : "Failed.";
+        if (res.ok) { await loadArticle(); }
+      };
+
+      // New comment
+      qs("#c_post").onclick = async () => {
+        const text = qs("#c_text").value.trim();
+        if (!text) return;
+        const r = await fetch(`/api/comments/${encodeURIComponent(articleId)}/comments`, {
+          method:"POST", headers:{ "Content-Type":"application/json" }, credentials:"include",
+          body: JSON.stringify({ comment: text })
+        });
+        if (r.ok) { qs("#c_text").value = ""; await loadComments(); }
+      };
+    })();
+  </script>
+</body>
+</html>

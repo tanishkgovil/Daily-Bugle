@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Daily Bugle — Login</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; display:flex; min-height:100vh; align-items:center; justify-content:center; background:#0f172a; color:#e2e8f0; }
+    form { background:#111827; padding:24px; border-radius:12px; width:320px; box-shadow:0 10px 20px rgba(0,0,0,.3); }
+    h1 { margin:0 0 12px; font-size:1.25rem; }
+    label { display:block; margin-top:12px; font-size:.9rem; }
+    input { width:100%; padding:10px; margin-top:6px; border-radius:8px; border:1px solid #334155; background:#0b1220; color:#e2e8f0; }
+    button { width:100%; padding:10px; margin-top:16px; border-radius:8px; border:0; background:#2563eb; color:white; cursor:pointer; font-weight:600; }
+    .msg { margin-top:12px; min-height:1.2em; font-size:.9rem; }
+    a { color:#93c5fd; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <form id="f">
+    <h1>Sign in</h1>
+    <label>Username<input id="u" autocomplete="username" required /></label>
+    <label>Password<input id="p" type="password" autocomplete="current-password" required /></label>
+    <label style="display:flex;gap:.5rem;align-items:center;margin-top:8px">
+      <input id="asAuthor" type="checkbox" />
+      Register as author
+    </label>
+    <button type="submit">Sign in</button>
+    <button type="button" id="r">Create account</button>
+    <div class="msg" id="m"></div>
+    <div style="margin-top:8px;text-align:center;">
+      <a href="/dailybugle/">Back to home</a>
+    </div>
+  </form>
+
+  <script>
+    const m = document.getElementById("m");
+    async function post(path, body) {
+      const r = await fetch(path, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        credentials:"include",
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.statusText);
+    }
+    document.getElementById("f").onsubmit = async (e) => {
+      e.preventDefault(); m.textContent = "Signing in…";
+      try {
+        await post("/api/auth/login", { username: u.value.trim(), password: p.value });
+        location.href = "/dailybugle/";
+      } catch (err) { m.textContent = err.message; }
+    };
+    document.getElementById("r").onclick = async () => {
+      m.textContent = "Creating account…";
+      try {
+        await post("/api/auth/register", { username: u.value.trim(), password: p.value, role: document.getElementById("asAuthor").checked ? "author" : "reader" });
+        await post("/api/auth/login", { username: u.value.trim(), password: p.value });
+        location.href = "/dailybugle/";
+      } catch (err) { m.textContent = err.message; }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Daily Bugle — Home</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #0f172a; color:#e2e8f0; }
+    header, footer { padding: 12px 16px; background:#0b1220; border-bottom:1px solid #1f2937; }
+    main { max-width: 860px; margin: 0 auto; padding: 16px; }
+    .row { display:flex; gap: 16px; }
+    .left { flex: 2; }
+    .right { flex: 1; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:14px; margin-bottom:12px; }
+    a, a:visited { color:#93c5fd; text-decoration:none; }
+    button { padding:8px 10px; border-radius:8px; border:0; background:#2563eb; color:#fff; cursor:pointer; }
+    .hidden { display:none; }
+    .ad { background:#0b1220; border:1px dashed #334155; min-height:90px; display:block; padding:10px; border-radius:10px; }
+  </style>
+</head>
+<body>
+  <header class="row" style="justify-content:space-between;align-items:center;">
+    <div><strong>Daily Bugle</strong></div>
+    <div id="userbox">
+      <a href="/dailybugle/login.html">Login / Register</a>
+    </div>
+  </header>
+
+  <main class="row">
+    <section class="left">
+      <h2>Latest stories</h2>
+      <div id="stories"></div>
+    </section>
+    <aside class="right">
+      <div id="adWrap" class="card">
+        <div class="ad" id="adContainer">Loading ad…</div>
+      </div>
+    </aside>
+  </main>
+
+  <footer><small>&copy; Daily Bugle</small></footer>
+
+  <script>
+    const qs = (s, r=document) => r.querySelector(s);
+    const storiesEl = qs("#stories");
+    const userbox = qs("#userbox");
+    const adWrap = qs("#adWrap"), adContainer = qs("#adContainer");
+
+    async function api(path, opts={}) {
+      const res = await fetch(path, { credentials:"include", ...opts });
+      if (res.status === 204) return null;
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) return res.json();
+      return res.text();
+    }
+
+    async function loadMe() {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (!res.ok) return null;
+      const { user } = await res.json();
+      return user;
+    }
+
+    function storyCard(item) {
+      const el = document.createElement("div");
+      el.className = "card";
+      const imageHtml = item.imageUrl ? `<img src="${item.imageUrl}" style="max-width:100%;border-radius:8px;margin-bottom:10px" />` : '';
+      el.innerHTML = `
+        <a href="/dailybugle/story.html?id=${encodeURIComponent(item.id)}"><h3>${item.title}</h3></a>
+        ${imageHtml}
+        <p>${item.teaser ?? ""}</p>
+        <div style="opacity:.75;font-size:.9em">Categories: ${(item.categories||[]).join(", ")}</div>
+      `;
+      return el;
+    }
+
+    async function loadStories() {
+      const data = await api("/api/articles");
+      (data.items || []).forEach(it => storiesEl.appendChild(storyCard(it)));
+    }
+
+    async function loadAd(contextArticleId) {
+      const ad = await api("/api/ads");
+      if (!ad || !ad.ad) { adWrap.classList.add("hidden"); return; }
+
+      // Render creative
+      adContainer.innerHTML = ad.ad.html;
+
+      // Fire impression
+      await fetch("/api/ad-events", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        credentials:"include",
+        body: JSON.stringify({ ad_id: ad.ad.id, article_id: contextArticleId || "home", event_type: "impression" })
+      });
+
+      // Capture click anywhere inside the ad container
+      adContainer.addEventListener("click", async (e) => {
+        try {
+          await fetch("/api/ad-events", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            credentials:"include",
+            body: JSON.stringify({ ad_id: ad.ad.id, article_id: contextArticleId || "home", event_type: "click" })
+          });
+        } finally {
+          window.location.href = ad.ad.clickUrl;
+        }
+      }, { once: true });
+    }
+
+    (async () => {
+      const me = await loadMe();
+      if (me) {
+        const isAuthor = (me.roles || []).includes("author");
+        userbox.innerHTML = `
+          <span>Hi, ${me.username}</span>
+          ${isAuthor ? ' &nbsp; <a href="/dailybugle/new_article.html">New Article</a>' : ''}
+          &nbsp; <a href="/dailybugle/story.html">Story view</a>
+          &nbsp; <button id="logoutBtn">Logout</button>`;
+        qs("#logoutBtn").onclick = async () => { await api("/api/auth/logout", { method:"POST" }); location.reload(); };
+      }
+      await loadStories();
+
+      // Authors should not see ads
+      const roles = (me && me.roles) || [];
+      if (roles.includes("author")) {
+        adWrap.classList.add("hidden");
+      } else {
+        await loadAd(null);
+      }
+    })();
+  </script>
+</body>
+</html>
