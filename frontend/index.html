@@ -44,6 +44,12 @@
 
       <!-- Logged-in user view: one story at a time -->
       <div id="loggedInView" class="hidden">
+        <div class="search-box">
+          <input type="text" id="loggedInSearchInput" placeholder="Search stories..." />
+          <button id="loggedInSearchBtn">Search</button>
+          <button id="loggedInClearBtn" class="hidden">Clear</button>
+        </div>
+        
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <button id="prevBtn">← Previous</button>
           <span id="storyCounter"></span>
@@ -120,6 +126,25 @@
       allArticles = data.items || [];
       if (allArticles.length > 0) {
         await showArticleAtIndex(0);
+      }
+    }
+
+    async function searchArticles(query) {
+      const data = await api(`/dailybugle/api/search?q=${encodeURIComponent(query)}`);
+      allArticles = data.items || [];
+      if (allArticles.length > 0) {
+        await showArticleAtIndex(0);
+      } else {
+        qs("#storyTitle").textContent = "No results found";
+        qs("#storyTeaser").textContent = "";
+        qs("#storyCats").textContent = "";
+        qs("#storyImageWrap").style.display = "none";
+        qs("#storyBody").textContent = "";
+        qs("#storyCounter").textContent = "0 stories";
+        qs("#prevBtn").disabled = true;
+        qs("#nextBtn").disabled = true;
+        qs("#editSection").classList.add("hidden");
+        qs("#commentsList").innerHTML = "";
       }
     }
 
@@ -286,6 +311,25 @@
         // Navigation
         qs("#prevBtn").onclick = () => showArticleAtIndex(currentIndex - 1);
         qs("#nextBtn").onclick = () => showArticleAtIndex(currentIndex + 1);
+
+        // Search functionality for logged-in users
+        qs("#loggedInSearchBtn").onclick = async () => {
+          const query = qs("#loggedInSearchInput").value.trim();
+          if (query) {
+            qs("#loggedInClearBtn").classList.remove("hidden");
+            await searchArticles(query);
+          }
+        };
+
+        qs("#loggedInSearchInput").addEventListener("keypress", (e) => {
+          if (e.key === "Enter") qs("#loggedInSearchBtn").click();
+        });
+
+        qs("#loggedInClearBtn").onclick = async () => {
+          qs("#loggedInSearchInput").value = "";
+          qs("#loggedInClearBtn").classList.add("hidden");
+          await loadAllArticles();
+        };
 
         // Save edit
         qs("#saveEditBtn").onclick = async () => {
