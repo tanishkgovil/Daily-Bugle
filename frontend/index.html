@@ -69,34 +69,47 @@
       return user;
     }
 
-    function storyCard(item) {
+    function storyCard(item, isLoggedIn) {
       const el = document.createElement("div");
       el.className = "card";
       const imageHtml = item.imageUrl ? `<img src="${item.imageUrl}" style="max-width:100%;border-radius:8px;margin-bottom:10px" />` : '';
-      el.innerHTML = `
-        <a href="/dailybugle/story.html?id=${encodeURIComponent(item.id)}"><h3>${item.title}</h3></a>
-        ${imageHtml}
-        <p>${item.teaser ?? ""}</p>
-        <div style="opacity:.75;font-size:.9em">Categories: ${(item.categories||[]).join(", ")}</div>
-      `;
+      
+      if (isLoggedIn) {
+        el.innerHTML = `
+          <a href="/dailybugle/story.html?id=${encodeURIComponent(item.id)}"><h3>${item.title}</h3></a>
+          ${imageHtml}
+          <p>${item.teaser ?? ""}</p>
+          <div style="opacity:.75;font-size:.9em">Categories: ${(item.categories||[]).join(", ")}</div>
+        `;
+      } else {
+        el.innerHTML = `
+          <h3>${item.title}</h3>
+          ${imageHtml}
+          <p>${item.teaser ?? ""}</p>
+          <div style="opacity:.75;font-size:.9em">Categories: ${(item.categories||[]).join(", ")}</div>
+          <div style="margin-top:10px;opacity:.6;font-size:.9em">
+            <a href="/dailybugle/login.html">Login to read full story</a>
+          </div>
+        `;
+      }
       return el;
     }
 
-    async function loadStories() {
+    async function loadStories(isLoggedIn) {
       const data = await api("/dailybugle/api/articles");
       storiesEl.innerHTML = "";
       if (data.items && data.items.length > 0) {
-        data.items.forEach(it => storiesEl.appendChild(storyCard(it)));
+        data.items.forEach(it => storiesEl.appendChild(storyCard(it, isLoggedIn)));
       } else {
         storiesEl.innerHTML = '<p style="opacity:.75">No stories found.</p>';
       }
     }
 
-    async function searchStories(query) {
+    async function searchStories(query, isLoggedIn) {
       const data = await api(`/dailybugle/api/search?q=${encodeURIComponent(query)}`);
       storiesEl.innerHTML = "";
       if (data.items && data.items.length > 0) {
-        data.items.forEach(it => storiesEl.appendChild(storyCard(it)));
+        data.items.forEach(it => storiesEl.appendChild(storyCard(it, isLoggedIn)));
       } else {
         storiesEl.innerHTML = '<p style="opacity:.75">No results found.</p>';
       }
@@ -134,6 +147,8 @@
 
     (async () => {
       const me = await loadMe();
+      const isLoggedIn = !!me;
+      
       if (me) {
         const isAuthor = (me.roles || []).includes("author");
         userbox.innerHTML = `
@@ -143,7 +158,7 @@
           &nbsp; <button id="logoutBtn">Logout</button>`;
         qs("#logoutBtn").onclick = async () => { await api("/dailybugle/api/auth/logout", { method:"POST" }); location.reload(); };
       }
-      await loadStories();
+      await loadStories(isLoggedIn);
 
       // Search functionality
       qs("#searchBtn").onclick = async () => {
@@ -151,7 +166,7 @@
         if (query) {
           qs("#sectionTitle").textContent = `Search results for "${query}"`;
           qs("#clearBtn").classList.remove("hidden");
-          await searchStories(query);
+          await searchStories(query, isLoggedIn);
         }
       };
 
@@ -163,7 +178,7 @@
         qs("#searchInput").value = "";
         qs("#sectionTitle").textContent = "Latest stories";
         qs("#clearBtn").classList.add("hidden");
-        await loadStories();
+        await loadStories(isLoggedIn);
       };
 
       // Authors should not see ads

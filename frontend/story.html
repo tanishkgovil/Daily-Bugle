@@ -146,6 +146,14 @@
       if (!articleId) { location.href = "/"; return; }
 
       const me = await loadMe();
+      
+      // Redirect anonymous users to login
+      if (!me) {
+        alert("Please login to read full stories");
+        location.href = "/dailybugle/login.html";
+        return;
+      }
+      
       if (me) {
         qs("#userbox").innerHTML = `<span>Hi, ${me.username}</span> &nbsp; <a href="/dailybugle/">Home</a>`;
         qs("#commentForm").classList.remove("hidden");
