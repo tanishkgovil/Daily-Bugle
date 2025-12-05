@@ -44,8 +44,7 @@ function toPublic(doc) {
     teaser: doc.teaser || "",
     categories: doc.categories || [],
     imageUrl: doc.imageUrl || null,
-    createdAt: doc.createdAt,
-    score: doc.score // textScore (useful for debugging or ranking on FE)
+    createdAt: doc.createdAt
   };
 }
 
@@ -56,16 +55,22 @@ app.get("/search", async (req, res) => {
 
   const limit = Math.min(parseInt(req.query.limit || "20", 10) || 20, 50);
 
-  // Text search with score; sort by score (then by recency as tie-breaker)
+  // Case-insensitive substring search across title, teaser, and categories
+  const searchRegex = new RegExp(q, "i");
   const cursor = Articles.find(
-    { $text: { $search: q } },
+    {
+      $or: [
+        { title: searchRegex },
+        { teaser: searchRegex },
+        { categories: searchRegex }
+      ]
+    },
     {
       projection: {
-        title: 1, teaser: 1, body: 1, categories: 1, imageUrl: 1, createdAt: 1,
-        score: { $meta: "textScore" }
+        title: 1, teaser: 1, body: 1, categories: 1, imageUrl: 1, createdAt: 1
       }
     }
-  ).sort({ score: { $meta: "textScore" }, createdAt: -1 }).limit(limit);
+  ).sort({ createdAt: -1 }).limit(limit);
 
   const docs = await cursor.toArray();
   res.json({ items: docs.map(toPublic) });

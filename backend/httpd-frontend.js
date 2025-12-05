@@ -14,9 +14,6 @@ const SEARCH_BASE   = process.env.SEARCH_BASE   || "http://localhost:4003";
 const AD_BASE       = process.env.AD_BASE       || "http://localhost:4004";
 const AD_EVENT_BASE = process.env.AD_EVENT_BASE || "http://localhost:4005";
 
-// --- Static files under /dailybugle
-app.use("/dailybugle", express.static(path.join(__dirname, "public")));
-
 // --- Proxy helpers (rewrite cookie Domain to current host)
 const commonProxyCfg = (target) => ({
   target, changeOrigin: true,
@@ -31,8 +28,21 @@ app.use("/dailybugle/api/auth", createProxyMiddleware(commonProxyCfg(AUTH_BASE))
 app.use("/api/auth", createProxyMiddleware(commonProxyCfg(AUTH_BASE)));
 
 // /dailybugle/api/search or /api/search -> search-service
-app.use("/dailybugle/api/search", createProxyMiddleware(commonProxyCfg(SEARCH_BASE)));
-app.use("/api/search", createProxyMiddleware(commonProxyCfg(SEARCH_BASE)));
+const searchProxyCfg = {
+  target: SEARCH_BASE,
+  changeOrigin: true,
+  cookieDomainRewrite: "",
+  xfwd: true,
+  logLevel: "debug",
+  pathRewrite: {
+    "^/": "/search"
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[SEARCH PROXY] Proxying to: ${SEARCH_BASE}${proxyReq.path}`);
+  }
+};
+app.use("/dailybugle/api/search", createProxyMiddleware(searchProxyCfg));
+app.use("/api/search", createProxyMiddleware(searchProxyCfg));
 
 // /dailybugle/api/ads or /api/ads -> ad-service
 app.use("/dailybugle/api/ads", createProxyMiddleware(commonProxyCfg(AD_BASE)));
@@ -67,6 +77,9 @@ app.use("/api/articles", (req, res, next) => {
   }
   return articleProxy(req, res, next);
 });
+
+// --- Static files under /dailybugle (AFTER all API routes so they take precedence)
+app.use("/dailybugle", express.static(path.join(__dirname, "public")));
 
 // --- SPA-ish fallback for convenience (support both /dailybugle prefix and root)
 app.get("/dailybugle", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
