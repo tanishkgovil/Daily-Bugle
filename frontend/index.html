@@ -31,13 +31,54 @@
 
   <main class="row">
     <section class="left">
-      <h2 id="sectionTitle">Latest stories</h2>
-      <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Search stories..." />
-        <button id="searchBtn">Search</button>
-        <button id="clearBtn" class="hidden">Clear</button>
+      <!-- Anonymous user view: list of stories -->
+      <div id="anonymousView">
+        <h2 id="sectionTitle">Latest stories</h2>
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search stories..." />
+          <button id="searchBtn">Search</button>
+          <button id="clearBtn" class="hidden">Clear</button>
+        </div>
+        <div id="stories"></div>
       </div>
-      <div id="stories"></div>
+
+      <!-- Logged-in user view: one story at a time -->
+      <div id="loggedInView" class="hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <button id="prevBtn">← Previous</button>
+          <span id="storyCounter"></span>
+          <button id="nextBtn">Next →</button>
+        </div>
+        
+        <article class="card">
+          <h1 id="storyTitle">Loading…</h1>
+          <div id="storyTeaser" style="opacity:.85;margin-top:-6px"></div>
+          <div id="storyCats" style="opacity:.75;font-size:.9em;margin-top:8px"></div>
+          <div id="storyImageWrap" style="margin-top:12px;display:none">
+            <img id="storyImage" style="max-width:100%;border-radius:8px" />
+          </div>
+          <div id="storyBody" style="margin-top:12px; white-space:pre-wrap;"></div>
+        </article>
+
+        <div id="editSection" class="card hidden">
+          <h3>Edit article</h3>
+          <label>Title <input id="editTitle"/></label><br/>
+          <label>Teaser <input id="editTeaser"/></label><br/>
+          <label>Body <textarea id="editBody" rows="8"></textarea></label><br/>
+          <label>Categories (comma separated) <input id="editCategories"/></label><br/>
+          <button id="saveEditBtn">Save changes</button>
+          <span id="saveMsg" style="margin-left:10px; opacity:.85"></span>
+        </div>
+
+        <section class="card">
+          <h3>Comments</h3>
+          <div id="commentForm">
+            <textarea id="commentText" rows="3" placeholder="Add a comment…"></textarea>
+            <div style="margin-top:8px"><button id="postCommentBtn">Post</button></div>
+          </div>
+          <div id="commentsList"></div>
+        </section>
+      </div>
     </section>
     <aside class="right">
       <div id="adWrap" class="card">
@@ -53,6 +94,85 @@
     const storiesEl = qs("#stories");
     const userbox = qs("#userbox");
     const adWrap = qs("#adWrap"), adContainer = qs("#adContainer");
+    
+    let allArticles = [];
+    let currentIndex = 0;
+    let currentUser = null;
+
+    async function api(path, opts={}) {
+      const res = await fetch(path, { credentials:"include", ...opts });
+      if (res.status === 204) return null;
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) return res.json();
+      return res.text();
+    }
+
+    async function loadMe() {
+      const res = await fetch("/dailybugle/api/auth/me", { credentials: "include" });
+      if (!res.ok) return null;
+      const { user } = await res.json();
+      return user;
+    }
+
+    // For logged-in users: display one story at a time
+    async function loadAllArticles() {
+      const data = await api("/dailybugle/api/articles");
+      allArticles = data.items || [];
+      if (allArticles.length > 0) {
+        await showArticleAtIndex(0);
+      }
+    }
+
+    async function showArticleAtIndex(index) {
+      if (index < 0 || index >= allArticles.length) return;
+      currentIndex = index;
+      const article = allArticles[index];
+
+      qs("#storyTitle").textContent = article.title;
+      qs("#storyTeaser").textContent = article.teaser || "";
+      qs("#storyCats").textContent = "Categories: " + (article.categories||[]).join(", ");
+      
+      if (article.imageUrl) {
+        qs("#storyImage").src = article.imageUrl;
+        qs("#storyImageWrap").style.display = "block";
+      } else {
+        qs("#storyImageWrap").style.display = "none";
+      }
+      
+      qs("#storyBody").textContent = article.body || "";
+      qs("#storyCounter").textContent = `Story ${index + 1} of ${allArticles.length}`;
+
+      // Update navigation buttons
+      qs("#prevBtn").disabled = (index === 0);
+      qs("#nextBtn").disabled = (index === allArticles.length - 1);
+
+      // Check if current user is the author
+      const isAuthor = currentUser && (currentUser.roles || []).includes("author");
+      if (isAuthor) {
+        qs("#editSection").classList.remove("hidden");
+        qs("#editTitle").value = article.title || "";
+        qs("#editTeaser").value = article.teaser || "";
+        qs("#editBody").value = article.body || "";
+        qs("#editCategories").value = (article.categories||[]).join(", ");
+      } else {
+        qs("#editSection").classList.add("hidden");
+      }
+
+      // Load comments for this article
+      await loadCommentsForArticle(article.id);
+    }
+
+    async function loadCommentsForArticle(articleId) {
+      const data = await api(`/dailybugle/api/comments/${encodeURIComponent(articleId)}/comments`);
+      const box = qs("#commentsList");
+      box.innerHTML = "";
+      (data.items || []).forEach(c => {
+        const el = document.createElement("div");
+        el.style.margin = "10px 0";
+        el.innerHTML = `<div style="opacity:.8;font-size:.9em">${new Date(c.createdAt).toLocaleString()}</div><div>${c.comment}</div>`;
+        box.appendChild(el);
+      });
+    }
 
     async function api(path, opts={}) {
       const res = await fetch(path, { credentials:"include", ...opts });
@@ -147,6 +267,7 @@
 
     (async () => {
       const me = await loadMe();
+      currentUser = me;
       const isLoggedIn = !!me;
       
       if (me) {
@@ -154,39 +275,84 @@
         userbox.innerHTML = `
           <span>Hi, ${me.username}</span>
           ${isAuthor ? ' &nbsp; <a href="/dailybugle/new_article.html">New Article</a>' : ''}
-          &nbsp; <a href="/dailybugle/story.html">Story view</a>
           &nbsp; <button id="logoutBtn">Logout</button>`;
         qs("#logoutBtn").onclick = async () => { await api("/dailybugle/api/auth/logout", { method:"POST" }); location.reload(); };
-      }
-      await loadStories(isLoggedIn);
+        
+        // Show logged-in view
+        qs("#anonymousView").classList.add("hidden");
+        qs("#loggedInView").classList.remove("hidden");
+        await loadAllArticles();
 
-      // Search functionality
-      qs("#searchBtn").onclick = async () => {
-        const query = qs("#searchInput").value.trim();
-        if (query) {
-          qs("#sectionTitle").textContent = `Search results for "${query}"`;
-          qs("#clearBtn").classList.remove("hidden");
-          await searchStories(query, isLoggedIn);
+        // Navigation
+        qs("#prevBtn").onclick = () => showArticleAtIndex(currentIndex - 1);
+        qs("#nextBtn").onclick = () => showArticleAtIndex(currentIndex + 1);
+
+        // Save edit
+        qs("#saveEditBtn").onclick = async () => {
+          const article = allArticles[currentIndex];
+          const payload = {
+            title: qs("#editTitle").value,
+            teaser: qs("#editTeaser").value,
+            body: qs("#editBody").value,
+            categories: qs("#editCategories").value.split(",").map(s => s.trim()).filter(Boolean)
+          };
+          const res = await fetch(`/dailybugle/api/articles/${encodeURIComponent(article.id)}`, {
+            method:"PATCH", headers:{ "Content-Type":"application/json" }, credentials:"include",
+            body: JSON.stringify(payload)
+          });
+          qs("#saveMsg").textContent = res.ok ? "Saved." : "Failed.";
+          if (res.ok) {
+            // Reload articles to get updated data
+            await loadAllArticles();
+          }
+        };
+
+        // Post comment
+        qs("#postCommentBtn").onclick = async () => {
+          const text = qs("#commentText").value.trim();
+          if (!text) return;
+          const article = allArticles[currentIndex];
+          const r = await fetch(`/dailybugle/api/comments/${encodeURIComponent(article.id)}/comments`, {
+            method:"POST", headers:{ "Content-Type":"application/json" }, credentials:"include",
+            body: JSON.stringify({ comment: text })
+          });
+          if (r.ok) {
+            qs("#commentText").value = "";
+            await loadCommentsForArticle(article.id);
+          }
+        };
+
+        // Hide ads for authors
+        if (isAuthor) {
+          adWrap.classList.add("hidden");
+        } else {
+          await loadAd(null);
         }
-      };
-
-      qs("#searchInput").addEventListener("keypress", (e) => {
-        if (e.key === "Enter") qs("#searchBtn").click();
-      });
-
-      qs("#clearBtn").onclick = async () => {
-        qs("#searchInput").value = "";
-        qs("#sectionTitle").textContent = "Latest stories";
-        qs("#clearBtn").classList.add("hidden");
-        await loadStories(isLoggedIn);
-      };
-
-      // Authors should not see ads
-      const roles = (me && me.roles) || [];
-      if (roles.includes("author")) {
-        adWrap.classList.add("hidden");
       } else {
+        // Anonymous user - show list view
         await loadAd(null);
+        await loadStories(isLoggedIn);
+
+        // Search functionality
+        qs("#searchBtn").onclick = async () => {
+          const query = qs("#searchInput").value.trim();
+          if (query) {
+            qs("#sectionTitle").textContent = `Search results for "${query}"`;
+            qs("#clearBtn").classList.remove("hidden");
+            await searchStories(query, isLoggedIn);
+          }
+        };
+
+        qs("#searchInput").addEventListener("keypress", (e) => {
+          if (e.key === "Enter") qs("#searchBtn").click();
+        });
+
+        qs("#clearBtn").onclick = async () => {
+          qs("#searchInput").value = "";
+          qs("#sectionTitle").textContent = "Latest stories";
+          qs("#clearBtn").classList.add("hidden");
+          await loadStories(isLoggedIn);
+        };
       }
     })();
   </script>
