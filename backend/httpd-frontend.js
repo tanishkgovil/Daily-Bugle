@@ -1,4 +1,3 @@
-// Tiny static server + API proxy so the browser never hits internal services directly.
 const express = require("express");
 const path = require("path");
 const { createProxyMiddleware } = require("http-proxy-middleware");
@@ -6,7 +5,6 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const app = express();
 const PORT = process.env.PORT || 4006;
 
-// --- Internal service bases (override with env in docker-compose)
 const AUTH_BASE     = process.env.AUTH_BASE     || "http://localhost:4000";
 const ARTICLE_BASE  = process.env.ARTICLE_BASE  || "http://localhost:4001";
 const COMMENT_BASE  = process.env.COMMENT_BASE  || "http://localhost:4002";
@@ -14,11 +12,10 @@ const SEARCH_BASE   = process.env.SEARCH_BASE   || "http://localhost:4003";
 const AD_BASE       = process.env.AD_BASE       || "http://localhost:4004";
 const AD_EVENT_BASE = process.env.AD_EVENT_BASE || "http://localhost:4005";
 
-// --- Proxy helpers (rewrite cookie Domain to current host)
 const commonProxyCfg = (target) => ({
   target, changeOrigin: true,
-  cookieDomainRewrite: "", // ensure Set-Cookie is for frontend host
-  xfwd: true,              // pass X-Forwarded-* so services can record IPs
+  cookieDomainRewrite: "",
+  xfwd: true,
   logLevel: "warn",
   pathRewrite: { "^/dailybugle/api": "", "^/api": "" }
 });
@@ -78,10 +75,8 @@ app.use("/api/articles", (req, res, next) => {
   return articleProxy(req, res, next);
 });
 
-// --- Static files under /dailybugle (AFTER all API routes so they take precedence)
 app.use("/dailybugle", express.static(path.join(__dirname, "public")));
 
-// --- SPA-ish fallback for convenience (support both /dailybugle prefix and root)
 app.get("/dailybugle", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/dailybugle/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/dailybugle/story.html", (req, res) => res.sendFile(path.join(__dirname, "public", "story.html")));

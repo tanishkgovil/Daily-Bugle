@@ -1,10 +1,3 @@
-// Search Service (MVP)
-// Endpoint:
-//   GET /search?q=heart+health   -> { items: [...] }
-//
-// Uses the same "articles" collection schema as article-service:
-// { _id, title, teaser, body, categories[], imageUrl, createdAt, updatedAt }
-
 const express = require("express");
 const cors = require("cors");
 const { MongoClient } = require("mongodb");
@@ -19,7 +12,6 @@ app.use(cors({ origin: true, credentials: true }));
 
 let Articles;
 
-// ---- Connect DB & ensure text index
 MongoClient.connect(MONGO_URL)
   .then(client => {
     const db = client.db(DB_NAME);
@@ -35,7 +27,6 @@ MongoClient.connect(MONGO_URL)
     app.listen(PORT, () => console.log(`search-service on :${PORT}`));
   });
 
-// ---- Helpers
 function toPublic(doc) {
   // keep payload small for search list
   return {

@@ -1,10 +1,3 @@
-// Ad Service (MVP)
-// Endpoint:
-//   GET /ads  -> { ad: { id, html, clickUrl } }
-// Behavior:
-//   - If requester is an author (via auth-service cookie), return 204 (no ad).
-//   - Otherwise return a random active ad from Mongo (or 204 if none).
-
 const express = require("express");
 const cors = require("cors");
 const { MongoClient } = require("mongodb");
@@ -61,7 +54,6 @@ async function isAuthor(req) {
 app.get("/", async (req, res) => {
   if (await isAuthor(req)) return res.status(204).end();
 
-  // Pick a random active ad. If you don't store "active", it will match all.
   const docs = await Ads.aggregate([
     { $match: { $or: [ { active: { $exists: false } }, { active: { $ne: false } } ] } },
     { $sample: { size: 1 } }

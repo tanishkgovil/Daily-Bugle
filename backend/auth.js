@@ -1,10 +1,3 @@
-// Super-basic MVP auth service (no hashing, no JWT).
-// Stores passwords in plaintext (ONLY for assignment/MVP).
-// - POST /auth/register {username, password[, role]}
-// - POST /auth/login {username, password}
-// - POST /auth/logout
-// - GET  /auth/me        -> verifies cookie; returns user {id, username, roles}
-
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
@@ -31,7 +24,7 @@ MongoClient.connect(MONGO_URL)
     users = client.db(DB_NAME).collection("users");
     return users.createIndex({ username: 1 }, { unique: true });
   })
-  .catch(() => {}) // index may already exist
+  .catch(() => {})
   .finally(() => {
     app.listen(PORT, () => console.log(`auth-service listening on :${PORT}`));
   });
@@ -68,14 +61,13 @@ app.post("/register", async (req, res) => {
   }
   const doc = {
     username: String(username).trim().toLowerCase(),
-    password: String(password), // plaintext for MVP
+    password: String(password),
     roles: [role === "author" ? "author" : "user"],
     createdAt: new Date()
   };
 
   try {
     const r = await users.insertOne(doc);
-    // Optionally auto-login after register
     res.cookie(COOKIE_NAME, r.insertedId.toString(), {
       httpOnly: true,
       sameSite: "lax",
@@ -113,13 +105,11 @@ app.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-// Verify cookie / fetch current user
 app.get("/me", requireAuth, (req, res) => {
   const u = req.user;
   res.json({ user: { id: u._id.toString(), username: u.username, roles: u.roles } });
 });
 
-// Example protected endpoint demonstrating cookie verification.
 app.get("/needs-author", requireAuth, (req, res) => {
   const roles = req.user.roles || [];
   if (!roles.includes("author")) return res.status(403).json({ error: "forbidden" });

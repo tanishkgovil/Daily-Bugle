@@ -1,10 +1,3 @@
-// Article Service (MVP)
-// Endpoints:
-//   GET    /articles?category=
-//   GET    /articles/:id
-//   POST   /articles        (author-only)
-//   PATCH  /articles/:id    (author-only)
-
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -71,7 +64,7 @@ async function requireAuthor(req, res, next) {
 
 // ---- Routes
 
-// List (optional category filter)
+// List, filter by query
 app.get("/", async (req, res) => {
   const { category } = req.query;
   const q = {};
@@ -96,7 +89,6 @@ app.post("/", requireAuthor, upload.single('image'), async (req, res) => {
   
   let imageData = null;
   if (req.file) {
-    // Store image as base64 data URL
     const base64 = req.file.buffer.toString('base64');
     imageData = `data:${req.file.mimetype};base64,${base64}`;
   }

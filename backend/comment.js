@@ -1,11 +1,3 @@
-// Comment Service (MVP)
-// Endpoints:
-//   GET  /articles/:id/comments                (public)
-//   POST /articles/:id/comments                (authenticated)
-//
-// Data model (collection: comments):
-//   { _id, article_id:ObjectId, user_id:ObjectId, comment:String, createdAt:Date }
-
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ObjectId } = require("mongodb");

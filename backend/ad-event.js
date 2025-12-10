@@ -1,15 +1,3 @@
-// Ad Event Service (MVP)
-// Endpoints:
-//   POST /ad-event     (primary)
-//   POST /ad-service   (alias)
-// Body:
-//   { ad_id, article_id, event_type } where event_type in {"impression","click"}
-// Automatically records: user_id | anon, user_label, req.ip, user-agent, created_at
-//
-// Data model (collection: ad_events):
-//   { _id, ad_id:String, article_id:String, event_type:String,
-//     user_id:String|null, user_label:"user"|"anon", ip:String, user_agent:String, created_at:Date }
-
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ObjectId } = require("mongodb");
@@ -20,7 +8,7 @@ const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/?appName=M
 const AUTH_URL = process.env.AUTH_URL || "http://localhost:4000"; // auth-service base
 
 const app = express();
-app.set("trust proxy", true); // so req.ip reflects X-Forwarded-For if behind proxy
+app.set("trust proxy", true);
 app.use(express.json());
 app.use(cors({ origin: true, credentials: true }));
 
@@ -84,7 +72,7 @@ async function recordEvent(req, res) {
 
 // ---- Routes
 app.post("/", recordEvent);
-// alias to match earlier note
+
 app.post("/ad-service", recordEvent);
 
 module.exports = app;
